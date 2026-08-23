@@ -119,8 +119,10 @@
     overflow: hidden;
   }
 
-  /* ---------- Standings table ---------- */
-  table { width: 100%; border-collapse: collapse; }
+  /* ---------- Tables ---------- */
+  /* table-layout: fixed makes the % widths on <th> actually control column
+     size, instead of letting long text stretch a column wider than intended. */
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   th {
     font-family: 'Space Mono', monospace;
     font-size: 11px;
@@ -135,6 +137,9 @@
     padding: 12px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.04);
     font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   tr:last-child td { border-bottom: none; }
   .rank-badge {
@@ -150,6 +155,7 @@
     font-family: 'Space Mono', monospace;
     font-size: 12px;
     letter-spacing: 0.5px;
+    white-space: normal;
   }
 
   footer {
@@ -183,11 +189,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:36px">#</th>
-            <th>Team</th>
-            <th style="width:50px">W</th>
-            <th style="width:50px">L</th>
-            <th style="width:90px">PF</th>
+            <th style="width:8%">#</th>
+            <th style="width:44%">Team</th>
+            <th style="width:16%">W</th>
+            <th style="width:16%">L</th>
+            <th style="width:16%">PF</th>
           </tr>
         </thead>
         <tbody id="standingsBody">
@@ -197,20 +203,53 @@
     </div>
   </section>
 
-  <section class="panel" id="panel-rankings">
+  <section class="panel" id="panel-history">
     <div class="panel-head">
-      <div class="panel-title">Power Rankings</div>
+      <div class="panel-title">Season History</div>
     </div>
-    <div class="card" style="padding: 20px;">
-      <p style="color: var(--chalk-dim);">Coming soon.</p>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:18%">Year</th>
+            <th style="width:41%">Winner</th>
+            <th style="width:41%">Bottom Two</th>
+          </tr>
+        </thead>
+        <tbody id="seasonHistoryBody">
+          <tr class="loading-row"><td colspan="3">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel-head" style="margin-top: 32px;">
+      <div class="panel-title">Career Record</div>
+    </div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44%">Owner</th>
+            <th style="width:28%">Championships</th>
+            <th style="width:28%">Bottom Two Finishes</th>
+          </tr>
+        </thead>
+        <tbody id="careerRecordBody">
+          <tr class="loading-row"><td colspan="3">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </main>
 
+<footer>Standings update automatically &mdash; edits happen in the Sheet, not here.</footer>
+
 <script>
-  // CSV export link for your published "Standings" tab.
-  // If you republish the Sheet or change tabs, you may need to update this URL.
+  // CSV export links for each tab in your published Google Sheet.
+  // If you rename a tab, update the corresponding "sheet=" value below to match exactly.
   const CSV_URL = 'https://docs.google.com/spreadsheets/d/18CCo3E0tpNDDiBHBTDsOUR6id6NUiHSENk25Igrr2T0/gviz/tq?tqx=out:csv&sheet=Standings';
+  const SEASON_HISTORY_CSV = 'https://docs.google.com/spreadsheets/d/18CCo3E0tpNDDiBHBTDsOUR6id6NUiHSENk25Igrr2T0/gviz/tq?tqx=out:csv&sheet=History1';
+  const CAREER_RECORD_CSV = 'https://docs.google.com/spreadsheets/d/18CCo3E0tpNDDiBHBTDsOUR6id6NUiHSENk25Igrr2T0/gviz/tq?tqx=out:csv&sheet=History2';
 
   // Basic CSV line parser that handles quoted fields containing commas.
   function parseCsvLine(line) {
@@ -242,7 +281,7 @@
     div.textContent = str == null ? '' : String(str);
     return div.innerHTML;
   }
-  
+
   async function loadStandings() {
     const body = document.getElementById('standingsBody');
     try {
@@ -285,7 +324,71 @@
     }
   }
 
+  async function loadSeasonHistory() {
+    const body = document.getElementById('seasonHistoryBody');
+    try {
+      const res = await fetch(SEASON_HISTORY_CSV);
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(l => l.trim().length > 0);
+      // Expects 3 columns per row: Year, Winner, Bottom Two
+      const rows = lines.slice(1).map(parseCsvLine).filter(cols => (cols[0] || '').trim().length > 0);
+
+      if (rows.length === 0) {
+        body.innerHTML = '<tr class="loading-row"><td colspan="3">No seasons logged yet.</td></tr>';
+        return;
+      }
+
+      // Most recent year first
+      rows.sort((a, b) => (parseInt(b[0]) || 0) - (parseInt(a[0]) || 0));
+
+      body.innerHTML = rows.map(cols => `
+        <tr>
+          <td class="stat-num">${escapeHtml(cols[0])}</td>
+          <td>${escapeHtml(cols[1])}</td>
+          <td>${escapeHtml(cols[2])}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load season history:', err);
+      body.innerHTML = '<tr class="error-row"><td colspan="3">Couldn\'t load season history.</td></tr>';
+    }
+  }
+
+  async function loadCareerRecord() {
+    const body = document.getElementById('careerRecordBody');
+    try {
+      const res = await fetch(CAREER_RECORD_CSV);
+      if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(l => l.trim().length > 0);
+      // Expects 3 columns per row: Owner, Championships, Bottom Two Finishes
+      const rows = lines.slice(1).map(parseCsvLine).filter(cols => (cols[0] || '').trim().length > 0);
+
+      if (rows.length === 0) {
+        body.innerHTML = '<tr class="loading-row"><td colspan="3">No owners found.</td></tr>';
+        return;
+      }
+
+      // Most championships first
+      rows.sort((a, b) => (parseInt(b[1]) || 0) - (parseInt(a[1]) || 0));
+
+      body.innerHTML = rows.map(cols => `
+        <tr>
+          <td>${escapeHtml(cols[0])}</td>
+          <td class="stat-num">${escapeHtml(cols[1])}</td>
+          <td class="stat-num">${escapeHtml(cols[2])}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      console.error('Failed to load career record:', err);
+      body.innerHTML = '<tr class="error-row"><td colspan="3">Couldn\'t load career record.</td></tr>';
+    }
+  }
+
   loadStandings();
+  loadSeasonHistory();
+  loadCareerRecord();
 </script>
 
 <script>
@@ -298,6 +401,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 </script>
-  
+
 </body>
 </html>
