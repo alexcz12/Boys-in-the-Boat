@@ -168,6 +168,22 @@
     font-family: 'Space Mono', monospace;
     letter-spacing: 0.5px;
   }
+
+  /* ---------- Map labels ---------- */
+  .dinner-map-label {
+    background: var(--ink);
+    border: 1px solid var(--gold-dim);
+    color: var(--chalk);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    box-shadow: none;
+  }
+  .dinner-map-label::before {
+    border-top-color: var(--gold-dim);
+  }
 </style>
 </head>
 <body>
@@ -180,6 +196,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-tab="standings">Standings</button>
   <button class="tab-btn" data-tab="history">League History</button>
+  <button class="tab-btn" data-tab="dinners">Dinner Locations and Pics</button>
 </nav>
 
 <main>
@@ -242,9 +259,11 @@
         </tbody>
       </table>
     </div>
+  </section>
 
-    <div class="panel-head" style="margin-top: 32px;">
-      <div class="panel-title">Dinner Locations</div>
+  <section class="panel" id="panel-dinners">
+    <div class="panel-head">
+      <div class="panel-title">Dinner Locations and Pics</div>
     </div>
     <div class="card" style="padding: 12px;">
       <div id="dinnerMap" style="height: 400px; border-radius: 4px;"></div>
@@ -416,6 +435,12 @@
           const marker = L.marker([lat, lon]).addTo(map);
           const label = locationName || address;
           marker.bindPopup(`<b>${escapeHtml(year)}</b> &mdash; ${escapeHtml(label)}${winner ? '<br>Winner: ' + escapeHtml(winner) : ''}`);
+          marker.bindTooltip(`${escapeHtml(year)} &mdash; ${escapeHtml(label)}`, {
+            permanent: true,
+            direction: 'top',
+            offset: [0, -8],
+            className: 'dinner-map-label'
+          });
           markers.push(marker);
         }
       } catch (err) {
@@ -479,7 +504,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
     // Leaflet miscalculates its size if initialized while its tab was hidden.
     // Whenever the History tab becomes visible, tell it to recheck its real size.
-    if (btn.dataset.tab === 'history' && dinnerMapInstance) {
+    if (btn.dataset.tab === 'dinners' && dinnerMapInstance) {
       setTimeout(() => {
         dinnerMapInstance.invalidateSize();
         if (dinnerMapBounds) {
