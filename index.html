@@ -213,15 +213,14 @@
       <table>
         <thead>
           <tr>
-            <th style="width:10%">Year</th>
-            <th style="width:22%">Winner</th>
-            <th style="width:22%">Bottom Two</th>
-            <th style="width:23%">Dinner Location</th>
-            <th style="width:23%">Address</th>
+            <th style="width:13%">Year</th>
+            <th style="width:29%">Winner</th>
+            <th style="width:29%">Bottom Two</th>
+            <th style="width:29%">Dinner Location</th>
           </tr>
         </thead>
         <tbody id="seasonHistoryBody">
-          <tr class="loading-row"><td colspan="5">Loading&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="4">Loading&hellip;</td></tr>
         </tbody>
       </table>
     </div>
@@ -346,7 +345,7 @@
       const rows = lines.slice(1).map(parseCsvLine).filter(cols => (cols[0] || '').trim().length > 0);
 
       if (rows.length === 0) {
-        body.innerHTML = '<tr class="loading-row"><td colspan="5">No seasons logged yet.</td></tr>';
+        body.innerHTML = '<tr class="loading-row"><td colspan="4">No seasons logged yet.</td></tr>';
         return;
       }
 
@@ -359,14 +358,13 @@
           <td>${escapeHtml(cols[1])}</td>
           <td>${escapeHtml(cols[2])}</td>
           <td>${escapeHtml(cols[3] || '')}</td>
-          <td>${escapeHtml(cols[4] || '')}</td>
         </tr>
       `).join('');
 
       renderDinnerMap(rows);
     } catch (err) {
       console.error('Failed to load season history:', err);
-      body.innerHTML = '<tr class="error-row"><td colspan="5">Couldn\'t load season history.</td></tr>';
+      body.innerHTML = '<tr class="error-row"><td colspan="4">Couldn\'t load season history.</td></tr>';
     }
   }
 
@@ -374,11 +372,23 @@
   // Uses Nominatim (OpenStreetMap's free geocoding service) since it needs no API key.
   // Nominatim asks that requests go no faster than ~1/second, so we geocode one at a time
   // with a small delay rather than firing all requests simultaneously.
+  let dinnerMapInstance = null;
+  let dinnerMapBounds = null;
+
   async function renderDinnerMap(rows) {
     const mapEl = document.getElementById('dinnerMap');
     if (!mapEl || typeof L === 'undefined') return;
 
-    const map = L.map('dinnerMap').setView([41.8781, -87.6298], 4); // default center, adjusts once pins load
+    const map = L.map('dinnerMap', {
+      zoomControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      boxZoom: false,
+      keyboard: false
+    }).setView([41.8781, -87.6298], 4); // default center, adjusts once pins load
+    dinnerMapInstance = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -418,7 +428,8 @@
 
     if (markers.length > 0) {
       const group = L.featureGroup(markers);
-      map.fitBounds(group.getBounds().pad(0.2));
+      dinnerMapBounds = group.getBounds().pad(0.2);
+      map.fitBounds(dinnerMapBounds);
     }
   }
 
@@ -465,6 +476,17 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+
+    // Leaflet miscalculates its size if initialized while its tab was hidden.
+    // Whenever the History tab becomes visible, tell it to recheck its real size.
+    if (btn.dataset.tab === 'history' && dinnerMapInstance) {
+      setTimeout(() => {
+        dinnerMapInstance.invalidateSize();
+        if (dinnerMapBounds) {
+          dinnerMapInstance.fitBounds(dinnerMapBounds);
+        }
+      }, 100);
+    }
   });
 });
 </script>
