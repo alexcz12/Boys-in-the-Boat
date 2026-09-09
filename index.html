@@ -196,7 +196,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-tab="standings">Standings</button>
   <button class="tab-btn" data-tab="history">League History</button>
-  <button class="tab-btn" data-tab="dinners">Dinner Locations and Pics</button>
+  <button class="tab-btn" data-tab="dinners">Dinner Locations</button>
 </nav>
 
 <main>
@@ -263,11 +263,13 @@
 
   <section class="panel" id="panel-dinners">
     <div class="panel-head">
-      <div class="panel-title">Dinner Locations and Pics</div>
+      <div class="panel-title">Dinner Locations</div>
     </div>
     <div class="card" style="padding: 12px;">
       <div id="dinnerMap" style="height: 400px; border-radius: 4px;"></div>
     </div>
+
+    <div id="dinnerYearsContainer"></div>
   </section>
 </main>
 
@@ -381,6 +383,7 @@
       `).join('');
 
       renderDinnerMap(rows);
+      renderDinnerYearSections(rows);
     } catch (err) {
       console.error('Failed to load season history:', err);
       body.innerHTML = '<tr class="error-row"><td colspan="4">Couldn\'t load season history.</td></tr>';
@@ -391,6 +394,28 @@
   // Uses Nominatim (OpenStreetMap's free geocoding service) since it needs no API key.
   // Nominatim asks that requests go no faster than ~1/second, so we geocode one at a time
   // with a small delay rather than firing all requests simultaneously.
+  // Builds one heading + photo placeholder block per year, so each has a
+  // stable, linkable id (dinner-year-2025, etc.) that the map popups can jump to.
+  function renderDinnerYearSections(rows) {
+    const container = document.getElementById('dinnerYearsContainer');
+    if (!container) return;
+
+    const sorted = [...rows].sort((a, b) => (parseInt(b[0]) || 0) - (parseInt(a[0]) || 0));
+
+    container.innerHTML = sorted.map(cols => {
+      const year = (cols[0] || '').trim();
+      if (!year) return '';
+      return `
+        <div class="panel-head" style="margin-top: 32px;">
+          <div class="panel-title">${escapeHtml(year)}</div>
+        </div>
+        <div class="card" id="dinner-year-${escapeHtml(year)}" style="padding: 20px;">
+          <p style="color: var(--chalk-dim);">Photos coming soon.</p>
+        </div>
+      `;
+    }).join('');
+  }
+
   let dinnerMapInstance = null;
   let dinnerMapBounds = null;
 
@@ -420,6 +445,7 @@
     for (const cols of rows) {
       const year = (cols[0] || '').trim();
       const winner = (cols[1] || '').trim();
+      const losers = (cols[2] || '').trim();
       const locationName = (cols[3] || '').trim();
       const address = (cols[4] || '').trim();
       if (!address) continue;
@@ -434,7 +460,11 @@
           const lon = parseFloat(geoData[0].lon);
           const marker = L.marker([lat, lon]).addTo(map);
           const label = locationName || address;
-          marker.bindPopup(`<b>${escapeHtml(year)}</b> &mdash; ${escapeHtml(label)}${winner ? '<br>Winner: ' + escapeHtml(winner) : ''}`);
+          const popupParts = [`<b>${escapeHtml(year)}</b> &mdash; ${escapeHtml(label)}`];
+          if (winner) popupParts.push('Winner: ' + escapeHtml(winner));
+          if (losers) popupParts.push('Bottom Two: ' + escapeHtml(losers));
+          popupParts.push(`<a href="#dinner-year-${escapeHtml(year)}" onclick="goToDinnerYear('${year.replace(/'/g, "\\'")}'); return false;">Pictures</a>`);
+          marker.bindPopup(popupParts.join('<br>'));
           marker.bindTooltip(`${escapeHtml(year)} &mdash; ${escapeHtml(label)}`, {
             permanent: true,
             direction: 'top',
@@ -495,7 +525,19 @@
 </script>
 
 <script>
-document.querySelectorAll('.tab-btn').forEach(btn => {
+  // Called from the "Pictures" link inside a map popup. Reuses the normal tab-click
+  // logic (so the map still resizes/refits correctly), then scrolls to that year's section.
+  function goToDinnerYear(year) {
+    const dinnersBtn = document.querySelector('.tab-btn[data-tab="dinners"]');
+    if (dinnersBtn) dinnersBtn.click();
+
+    setTimeout(() => {
+      const target = document.getElementById('dinner-year-' + year);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 250);
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
