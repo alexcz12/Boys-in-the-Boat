@@ -184,6 +184,10 @@
   .dinner-map-label::before {
     border-top-color: var(--gold-dim);
   }
+  .invisible-marker-icon {
+    background: transparent;
+    border: none;
+  }
 </style>
 </head>
 <body>
@@ -458,7 +462,12 @@
         if (geoData && geoData.length > 0) {
           const lat = parseFloat(geoData[0].lat);
           const lon = parseFloat(geoData[0].lon);
-          const marker = L.marker([lat, lon]).addTo(map);
+          const invisibleIcon = L.divIcon({
+            className: 'invisible-marker-icon',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          const marker = L.marker([lat, lon], { icon: invisibleIcon }).addTo(map);
           const label = locationName || address;
           const popupParts = [`<b>${escapeHtml(year)}</b> &mdash; ${escapeHtml(label)}`];
           if (winner) popupParts.push('Winner: ' + escapeHtml(winner));
@@ -467,8 +476,8 @@
           marker.bindPopup(popupParts.join('<br>'));
           marker.bindTooltip(`${escapeHtml(year)} &mdash; ${escapeHtml(label)}`, {
             permanent: true,
-            direction: 'top',
-            offset: [0, -8],
+            direction: 'center',
+            offset: [0, 0],
             className: 'dinner-map-label'
           });
           markers.push(marker);
