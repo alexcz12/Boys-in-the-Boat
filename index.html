@@ -253,7 +253,7 @@
   </section>
 </main>
 
-<footer>Standings update automatically &mdash; edits happen in the Sheet, not here.</footer>
+<footer></footer>
 
 <script>
   // CSV export links for each tab in your published Google Sheet.
@@ -380,9 +380,9 @@
 
     const map = L.map('dinnerMap').setView([41.8781, -87.6298], 4); // default center, adjusts once pins load
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-      subdomains: 'abcd',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      subdomains: 'abc',
       maxZoom: 19
     }).addTo(map);
 
